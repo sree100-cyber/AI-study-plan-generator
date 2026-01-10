@@ -1,1 +1,1 @@
-# AI-study-plan-generator
+# study-plan-generator
