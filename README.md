@@ -1,6 +1,6 @@
 # study-plan-generator
 
-# app link : https://ai-study-plan-generator-gk78fwqdhkypvspjklgrvs.streamlit.app/
+## app link : https://ai-study-plan-generator-gk78fwqdhkypvspjklgrvs.streamlit.app/
 
 # 📌 Project Overview
 
