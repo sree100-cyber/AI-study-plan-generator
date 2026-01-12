@@ -1,7 +1,12 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta, time
-from streamlit_javascript import st_javascript  # For browser notifications
+import streamlit.components.v1 as components  # For browser notifications
+from streamlit_autorefresh import st_autorefresh
+
+# ---------------- AUTO REFRESH ----------------
+# Refresh every 60 seconds to check reminders
+st_autorefresh(interval=60000, key="reminder_refresh")
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config("AI Study Scheduler", "⏰", layout="wide")
@@ -41,22 +46,18 @@ st.sidebar.header("➕ Add Task")
 
 name = st.sidebar.text_input("Task Name")
 hardness = st.sidebar.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
-free_date = st.sidebar.date_input(
-    "Free Time Date",
-    value=datetime.today().date()
-)
-
+free_date = st.sidebar.date_input("Free Time Date", value=datetime.today().date())
 start = st.sidebar.time_input("Free Start", time(9, 0))
 end = st.sidebar.time_input("Free End", time(12, 0))
-
 date = st.sidebar.date_input("Deadline Date")
 dtime = st.sidebar.time_input("Deadline Time", time(18, 0))
+
+reminder_minutes = st.sidebar.number_input("Notify before (minutes)", 1, 120, 15)
 
 if st.sidebar.button("Add Task"):
     free_start = datetime.combine(free_date, start)
     free_end = datetime.combine(free_date, end)
     deadline = datetime.combine(date, dtime)
-
     st.session_state.tasks.append({
         "Task": name,
         "Hardness": hardness,
@@ -84,24 +85,20 @@ current_time = datetime.combine(datetime.today(), time(9, 0))
 for _, row in df.iterrows():
     if row["Status"] == "Completed":
         continue
-
     start_time = max(current_time, row["FreeStart"])
     end_time = start_time + row["Duration"]
-
     schedule.append({
         **row,
         "AI Start": start_time,
         "AI End": end_time,
         "Remaining": remaining(row["Deadline"])
     })
-
-    current_time = end_time + timedelta(minutes=15)  # break
+    current_time = end_time + timedelta(minutes=15)
 
 sch = pd.DataFrame(schedule)
 
 # ---------------- CALENDAR STYLE VIEW ----------------
 st.subheader("📅 Today’s AI Schedule")
-
 today = datetime.today().date()
 today_tasks = sch[sch["AI Start"].dt.date == today] if not sch.empty else pd.DataFrame()
 
@@ -112,54 +109,43 @@ else:
         with st.expander(f"🕒 {fmt(r['AI Start'])} – {fmt(r['AI End'])} | {r['Task']}"):
             st.write(f"🔥 Difficulty: {r['Hardness']}")
             st.write(f"⏳ Remaining: {r['Remaining']}")
-
             col1, col2, col3 = st.columns(3)
-
             if col1.button("✅ Complete", key=f"c{i}"):
                 st.session_state.tasks[i]["Status"] = "Completed"
                 st.rerun()
-
             if col2.button("✏️ Edit", key=f"e{i}"):
-                st.session_state.tasks[i]["Task"] = st.text_input(
-                    "New name", r["Task"], key=f"t{i}"
-                )
-
+                st.session_state.tasks[i]["Task"] = st.text_input("New name", r["Task"], key=f"t{i}")
             if col3.button("🗑 Delete", key=f"d{i}"):
                 st.session_state.tasks.pop(i)
                 st.rerun()
 
 # ---------------- REMINDERS ----------------
-# Notify tasks starting within next 15 minutes (toast + browser)
 now = datetime.now()
-
-# Ensure AI_Start is datetime
 if not today_tasks.empty:
     today_tasks["AI_Start"] = pd.to_datetime(today_tasks["AI Start"])
-
 for r in today_tasks.itertuples():
     time_to_start = (r.AI_Start - now).total_seconds() / 60
-    if 0 <= time_to_start <= 15 and r.Status != "Completed":
-        # In-app toast
+    if 0 <= time_to_start <= reminder_minutes and r.Status != "Completed":
+        # Toast notification
         st.toast(f"⏰ Reminder: '{r.Task}' starts at {fmt(r.AI_Start)}!")
-
-        # Browser notification
-        st_javascript(f"""
-            if (Notification.permission !== 'granted') {{
-                Notification.requestPermission();
-            }} else {{
-                new Notification('AI Study Scheduler', {{
-                    body: '{r.Task} starts at {fmt(r.AI_Start)}',
-                    icon: 'https://cdn-icons-png.flaticon.com/512/1827/1827504.png'
-                }});
-            }}
-        """)
+        # Browser notification using HTML/JS
+        components.html(f"""
+        <script>
+        if (Notification.permission !== 'granted') {{
+            Notification.requestPermission();
+        }} else {{
+            new Notification('AI Study Scheduler', {{
+                body: '{r.Task} starts at {fmt(r.AI_Start)}',
+                icon: 'https://cdn-icons-png.flaticon.com/512/1827/1827504.png'
+            }});
+        }}
+        </script>
+        """, height=0)
 
 # ---------------- UPCOMING ----------------
 st.subheader("🗓 Upcoming Tasks")
-
 required_cols = {"Task", "Hardness", "Remaining", "AI Start", "AI End"}
 upcoming = sch[sch["AI Start"].dt.date > today] if not sch.empty else pd.DataFrame()
-
 if upcoming.empty or not required_cols.issubset(upcoming.columns):
     st.info("No upcoming tasks scheduled")
 else:
