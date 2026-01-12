@@ -2,11 +2,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta, time
 import streamlit.components.v1 as components  # For browser notifications
-from streamlit_autorefresh import st_autorefresh
-
-# ---------------- AUTO REFRESH ----------------
-# Refresh every 60 seconds to check reminders
-st_autorefresh(interval=60000, key="reminder_refresh")
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config("AI Study Scheduler", "⏰", layout="wide")
@@ -43,7 +38,6 @@ def fmt(t): return t.strftime("%I:%M %p")
 
 # ---------------- SIDEBAR ADD TASK ----------------
 st.sidebar.header("➕ Add Task")
-
 name = st.sidebar.text_input("Task Name")
 hardness = st.sidebar.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
 free_date = st.sidebar.date_input("Free Time Date", value=datetime.today().date())
@@ -51,7 +45,6 @@ start = st.sidebar.time_input("Free Start", time(9, 0))
 end = st.sidebar.time_input("Free End", time(12, 0))
 date = st.sidebar.date_input("Deadline Date")
 dtime = st.sidebar.time_input("Deadline Time", time(18, 0))
-
 reminder_minutes = st.sidebar.number_input("Notify before (minutes)", 1, 120, 15)
 
 if st.sidebar.button("Add Task"):
@@ -128,7 +121,7 @@ for r in today_tasks.itertuples():
     if 0 <= time_to_start <= reminder_minutes and r.Status != "Completed":
         # Toast notification
         st.toast(f"⏰ Reminder: '{r.Task}' starts at {fmt(r.AI_Start)}!")
-        # Browser notification using HTML/JS
+        # Browser popup using HTML/JS
         components.html(f"""
         <script>
         if (Notification.permission !== 'granted') {{
@@ -157,3 +150,4 @@ else:
 
 # ---------------- FOOTER ----------------
 st.caption("Built by Sree | CSE – Data Analytics | AI-powered Planner")
+
